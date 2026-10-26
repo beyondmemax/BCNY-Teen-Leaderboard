@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // A teacher is any verified email with a doc at /teachers/{email}.
+    // Teacher docs are created by hand in the Firebase console — nobody can write them from the app.
+    function isTeacher() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/teachers/$(request.auth.token.email.lower()));
+    }
+    function signedIn() { return request.auth != null; }
+
+    match /teachers/{email} {
+      allow read: if signedIn() && (request.auth.token.email.lower() == email || isTeacher());
+      allow write: if false;
+    }
+
+    // Private profile. Students only see their own; the teacher sees everyone.
+    match /users/{uid} {
+      allow read: if isTeacher() || (signedIn() && request.auth.uid == uid);
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 'email', 'photoURL', 'lastSeen', 'announcementsSeenAt']);
+      allow delete: if isTeacher();
+    }
+
+    // Public-to-students scoreboard. Only the teacher can add people or change points.
+    match /leaderboard/{uid} {
+      allow read: if signedIn();
+      allow create, update: if isTeacher()
+        && request.resource.data.points is int && request.resource.data.points >= 0;
+      allow delete: if isTeacher();
+    }
+
+    // Point history — teacher only (reasons stay private).
+    match /pointsLog/{id} {
+      allow read, create: if isTeacher();
+      allow update, delete: if false;
+    }
+
+    // Announcements: everyone signed in reads, only the teacher posts.
+    match /announcements/{id} {
+      allow read: if signedIn();
+      allow create: if isTeacher()
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 60
+        && (!('body' in request.resource.data) || request.resource.data.body.size() <= 300);
+      allow update, delete: if isTeacher();
+    }
+  }
+}
