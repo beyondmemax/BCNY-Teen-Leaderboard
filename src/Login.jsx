@@ -17,8 +17,19 @@ const MESSAGES = {
   'auth/invalid-email': 'That email doesn’t look right. Check for typos.',
   'auth/too-many-requests': 'Too many tries. Wait a minute, then try again.',
   'auth/network-request-failed': 'No internet connection. Connect and try again.',
+  'auth/missing-password': 'Type a password first.',
+  'auth/password-does-not-meet-requirements': 'That password doesn’t meet the requirements. Try a longer one with a mix of letters and numbers.',
+  'auth/operation-not-allowed': 'Email sign-up is turned off for this app. Ask your teacher to turn on Email/Password in Firebase.',
+  'auth/admin-restricted-operation': 'Sign-ups are turned off for this app right now. Ask your teacher.',
+  'auth/unauthorized-domain': 'This web address isn’t allowed to sign in. Open the app from its official link.',
+  'auth/popup-blocked': 'Your browser blocked the Google window. Allow pop-ups and try again.',
 };
-const friendly = (e) => MESSAGES[e?.code] || 'Logging in didn’t work. Try again.';
+// Unknown errors show their code so they can be looked up.
+const friendly = (e) => {
+  if (MESSAGES[e?.code]) return MESSAGES[e.code];
+  console.error('Auth error', e);
+  return `That didn’t work${e?.code ? ` (${e.code.replace('auth/', '')})` : ''}. Try again.`;
+};
 
 export const getLoginAs = () => {
   try { return localStorage.getItem('loginAs') === 'teacher' ? 'teacher' : 'student'; } catch { return 'student'; }
