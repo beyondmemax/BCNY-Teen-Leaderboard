@@ -104,6 +104,7 @@ firestore.rules      access control
    ```
 
 **Good to know**
+- Drop the organization's logo at `public/bcny-logo.png` and it appears on the login screen (shown in white on the blue header). Without it, the org name shows as text.
 - Removing a student from the board erases their points.
 - `npm run dev` runs everything locally against your Firebase project.
 
