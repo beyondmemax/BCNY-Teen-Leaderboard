@@ -25,7 +25,7 @@ I tutor in BCNY's Teens & Explorers program, and points are how we keep sessions
 ## Features
 
 **Students**
-- Sign in with Google or email/password (with sign-up and password reset)
+- Pick **Student** or **Teacher** and **Sign in** or **Create account**, with Google or email/password (plus password reset)
 - See their rank front and center, the points gap to the person above them, a top-3 podium, and the full board
 - Live updates: the board changes the moment points are awarded
 - Install to the home screen on iPhone or Android, with guided instructions per platform
@@ -63,7 +63,7 @@ There's no custom backend. All business logic runs in the client, and Firestore 
 
 A few problems that took more than the obvious solution:
 
-- **Security lives in the rules, not the UI.** Role checks in React only decide which screens to show. Firestore rules enforce everything: students can't change points even with devtools open, profiles accept only whitelisted fields, points must be non-negative integers, and the point log is append-only. Teacher access requires a *verified* email listed in a `teachers` collection that the app itself can't write to.
+- **Security lives in the rules, not the UI.** Role checks in React only decide which screens to show. Firestore rules enforce everything: students can't change points even with devtools open, profiles accept only whitelisted fields, points must be non-negative integers, and the point log is append-only. Teacher access requires a *verified* email listed in a `teachers` collection that the app itself can't write to, so choosing "Teacher" on the login screen is a request, not a grant.
 - **Unread badges without a server.** Each student's profile stores when they last opened Announcements. The badge compares that to post timestamps, so reading on one device clears it everywhere. Server-timestamp estimates keep it correct even before a write is confirmed.
 - **Race-free points.** Point changes run in a Firestore transaction that clamps at zero and writes the log entry atomically, so two quick taps never lose an update.
 - **Free-tier by design.** Push notifications would require Cloud Functions (paid plan), so announcements live in an in-app feed instead. A conscious tradeoff for a nonprofit program.
@@ -94,7 +94,7 @@ firestore.rules      access control
 2. Add a **Web app**. Copy `.env.example` to `.env.local` and fill in the config. Set `VITE_FB_AUTH_DOMAIN` to `<project-id>.web.app` so Google sign-in works inside the installed app.
 3. **Authentication:** enable Google and Email/Password.
 4. **Firestore:** create a database in production mode.
-5. **Make yourself the teacher:** in Firestore, create a collection `teachers` with a document whose ID is your email in lowercase (add any field, e.g. `role: "teacher"`). Sign in with Google so the email counts as verified.
+5. **Make yourself the teacher:** in Firestore, create a collection `teachers` with a document whose ID is your email in lowercase (add any field, e.g. `role: "teacher"`). Then sign in with **Teacher** selected. Google accounts are verified automatically; email/password teachers get a verification link first.
 6. Deploy:
    ```bash
    npm install

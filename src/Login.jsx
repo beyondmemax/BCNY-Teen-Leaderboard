@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   GoogleAuthProvider, signInWithPopup, signInWithRedirect,
   signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  updateProfile, sendPasswordResetEmail,
+  updateProfile, sendPasswordResetEmail, sendEmailVerification,
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
@@ -20,7 +20,26 @@ const MESSAGES = {
 };
 const friendly = (e) => MESSAGES[e?.code] || 'Sign-in didn’t work. Try again.';
 
+export const getLoginAs = () => {
+  try { return localStorage.getItem('loginAs') === 'teacher' ? 'teacher' : 'student'; } catch { return 'student'; }
+};
+const saveLoginAs = (role) => { try { localStorage.setItem('loginAs', role); } catch {} };
+
+function Segmented({ label, value, options, onChange }) {
+  return (
+    <div className="segmented" role="radiogroup" aria-label={label}>
+      {options.map(([v, text]) => (
+        <button key={v} type="button" role="radio" aria-checked={value === v}
+          className={value === v ? 'is-on' : ''} onClick={() => onChange(v)}>
+          {text}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function Login() {
+  const [role, setRole] = useState(getLoginAs); // student | teacher
   const [mode, setMode] = useState('signin'); // signin | signup
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -29,8 +48,12 @@ export default function Login() {
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
 
+  const pickRole = (r) => { setRole(r); saveLoginAs(r); setError(''); setNote(''); };
+  const pickMode = (m) => { setMode(m); setError(''); setNote(''); };
+
   const google = async () => {
     setError(''); setBusy(true);
+    saveLoginAs(role);
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
     try {
@@ -48,6 +71,7 @@ export default function Login() {
   const submit = async (e) => {
     e.preventDefault();
     setError(''); setNote(''); setBusy(true);
+    saveLoginAs(role);
     try {
       if (mode === 'signup') {
         if (!name.trim()) throw { code: 'name' };
@@ -55,6 +79,8 @@ export default function Login() {
         await updateProfile(cred.user, { displayName: name.trim() });
         // The auth listener already saved a profile before the name was set, so fix it up.
         await setDoc(doc(db, 'users', cred.user.uid), { name: name.trim() }, { merge: true });
+        // Teacher access requires a verified email; send the link right away.
+        if (role === 'teacher') await sendEmailVerification(cred.user).catch(() => {});
         window.dispatchEvent(new Event('profile-updated'));
       } else {
         await signInWithEmailAndPassword(auth, email.trim(), password);
@@ -82,10 +108,18 @@ export default function Login() {
       <section className="login-hero">
         <img src="/icons/icon-192.png" alt="" width="64" height="64" />
         <h1>BCNY Board</h1>
-        <p>See your points and where you stand with the crew.</p>
+        <p>{role === 'teacher' ? 'Run the board: hand out points and post announcements.' : 'See your points and where you stand with the crew.'}</p>
       </section>
 
       <section className="login-card">
+        <Segmented label="I am a" value={role} onChange={pickRole}
+          options={[['student', 'Student'], ['teacher', 'Teacher']]} />
+        <Segmented label="Account" value={mode} onChange={pickMode}
+          options={[['signin', 'Sign in'], ['signup', 'Create account']]} />
+        {role === 'teacher' && mode === 'signup' && (
+          <p className="muted login-hint">Teacher accounts need to be approved by the program lead before the teacher tools unlock.</p>
+        )}
+
         <button className="btn btn-google" onClick={google} disabled={busy}>
           <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
             <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/>
@@ -93,7 +127,7 @@ export default function Login() {
             <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/>
             <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/>
           </svg>
-          Continue with Google
+          {mode === 'signup' ? 'Sign up with Google' : 'Sign in with Google'}
         </button>
 
         <div className="or"><span>or use email</span></div>
@@ -121,16 +155,11 @@ export default function Login() {
           </button>
         </form>
 
-        <div className="login-links">
-          {mode === 'signin' ? (
-            <>
-              <button className="link" onClick={() => { setMode('signup'); setError(''); }}>Create account</button>
-              <button className="link" onClick={reset}>Forgot password</button>
-            </>
-          ) : (
-            <button className="link" onClick={() => { setMode('signin'); setError(''); }}>I already have an account</button>
-          )}
-        </div>
+        {mode === 'signin' && (
+          <div className="login-links">
+            <button className="link" onClick={reset}>Forgot password</button>
+          </div>
+        )}
       </section>
     </main>
   );
