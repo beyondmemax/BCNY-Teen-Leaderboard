@@ -47,7 +47,7 @@ flowchart LR
   subgraph Phone["Student / teacher phone (PWA)"]
     UI[React app] --- SW[Service worker<br/>install + offline shell]
   end
-  UI -- "Google / email sign-in" --> AUTH[Firebase Auth]
+  UI -- "username / email sign-in" --> AUTH[Firebase Auth]
   UI <-- "realtime listeners" --> FS[(Firestore)]
   HOST[Firebase Hosting] -- "serves app" --> Phone
   RULES{{Security rules}} -.guards.- FS
@@ -70,7 +70,7 @@ There's no custom backend. All business logic runs in the client, and Firestore 
 
 A few problems that took more than the obvious solution:
 
-- **No student emails.** Firebase Auth needs an email-shaped id, so a username maps to an address under the project's own `firebaseapp.com` host, which has no mailboxes. Students never see it, nothing can be delivered there, and nobody can hijack an account through a reset email. Teachers still sign in with Google or a verified email.
+- **No student emails.** Firebase Auth needs an email-shaped id, so a username maps to an address under the project's own `firebaseapp.com` host, which has no mailboxes. Students never see it, nothing can be delivered there, and nobody can hijack an account through a reset email. Teachers sign in with an email and password, and must verify the email before teacher tools unlock.
 
 - **Security lives in the rules, not the UI.** Role checks in React only decide which screens to show. Firestore rules enforce everything: students can't change points even with devtools open, profiles accept only whitelisted fields, points must be non-negative integers, and the point log is append-only. Teacher access requires a *verified* email listed in a `teachers` collection that the app itself can't write to, so choosing "Teacher" on the login screen is a request, not a grant.
 - **Unread badges without a server.** Each student's profile stores when they last opened Announcements. The badge compares that to post timestamps, so reading on one device clears it everywhere. Server-timestamp estimates keep it correct even before a write is confirmed.
@@ -84,7 +84,7 @@ A few problems that took more than the obvious solution:
 ```
 src/
   App.jsx            auth state, role routing
-  Login.jsx          Google + email/password, sign-up, reset
+  Login.jsx          student username / teacher email sign-in, sign-up, reset
   StudentHome.jsx    rank hero, podium, board, announcements feed
   TeacherHome.jsx    Board / Students / Announce tabs
   Leaderboard.jsx    shared board + podium, realtime hook
@@ -101,10 +101,10 @@ firestore.rules      access control
 <summary>Setup steps (about 10 minutes, free)</summary>
 
 1. Create a Firebase project. The free **Spark** plan is all you need.
-2. Add a **Web app**. Copy `.env.example` to `.env.local` and fill in the config. Set `VITE_FB_AUTH_DOMAIN` to `<project-id>.web.app` so Google sign-in works inside the installed app.
-3. **Authentication:** enable Google and Email/Password.
+2. Add a **Web app**. Copy `.env.example` to `.env.local` and fill in the config.
+3. **Authentication:** enable Email/Password (no other providers needed).
 4. **Firestore:** create a database in production mode.
-5. **Make yourself the teacher:** in Firestore, create a collection `teachers` with a document whose ID is your email in lowercase (add any field, e.g. `role: "teacher"`). Then sign in with **Teacher** selected. Google accounts are verified automatically; email/password teachers get a verification link first.
+5. **Make yourself the teacher:** in Firestore, create a collection `teachers` with a document whose ID is your email in lowercase (add any field, e.g. `role: "teacher"`). Then sign up with **Teacher** selected and open the verification link it emails you.
 6. Deploy:
    ```bash
    npm install

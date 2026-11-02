@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { onAuthStateChanged, signOut, sendEmailVerification, getRedirectResult } from 'firebase/auth';
+import { onAuthStateChanged, signOut, sendEmailVerification } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db, checkTeacher, isStudentEmail } from './firebase';
 import Login, { getLoginAs } from './Login';
@@ -18,14 +18,6 @@ export default function App() {
     const bump = () => rerender((n) => n + 1);
     window.addEventListener('profile-updated', bump);
     return () => window.removeEventListener('profile-updated', bump);
-  }, []);
-
-  // Finish a redirect sign-in (fallback path) and surface any error instead of silently looping.
-  useEffect(() => {
-    getRedirectResult(auth).catch((e) => {
-      console.error('Redirect sign-in failed', e);
-      setToast({ title: 'Google sign-in didn’t finish', body: `Try again, or use email and password. (${(e.code || '').replace('auth/', '')})` });
-    });
   }, []);
 
   useEffect(

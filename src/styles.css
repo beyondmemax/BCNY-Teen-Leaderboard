@@ -183,7 +183,6 @@ input:focus, textarea:focus { outline: none; border-color: var(--court); box-sha
 .btn-minus { background: var(--minus); color: #fff; flex: 1; }
 .btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--muted); }
 .btn-sm { padding: 8px 12px; min-height: 38px; font-size: .88rem; flex: none; }
-.btn-google { width: 100%; background: var(--surface); border: 1px solid var(--line); color: var(--ink); }
 .link { background: none; border: 0; color: var(--court); font-weight: 600; padding: 6px 2px; }
 @media (prefers-color-scheme: dark) { .link { color: #9db0ff; } }
 .icon-btn { background: none; border: 0; font-size: 1.05rem; padding: 8px; border-radius: 8px; color: var(--muted); }
@@ -297,10 +296,7 @@ input:focus, textarea:focus { outline: none; border-color: var(--court); box-sha
   padding: 18px 18px 14px; box-shadow: 0 24px 60px -24px rgba(16, 28, 90, .35);
 }
 .login-card .btn { width: 100%; }
-.btn-google { background: var(--bg); border: 1px solid var(--line); color: var(--ink); margin-top: 4px; }
 .btn-go { margin-top: 2px; font-size: 1.02rem; }
-.or { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: .82rem; margin: 16px 0 12px; }
-.or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
 .login-hint { font-size: .88rem; color: var(--muted); background: color-mix(in srgb, var(--gold) 14%, transparent); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
 .login-links { display: flex; justify-content: center; padding-top: 6px; }
 .login .stack { gap: 10px; }
