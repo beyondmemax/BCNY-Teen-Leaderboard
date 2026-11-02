@@ -6,7 +6,6 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import { isStandalone } from './pwa';
 
 const MESSAGES = {
   'auth/invalid-credential': 'That email and password don’t match. Check both and try again.',
@@ -95,11 +94,13 @@ export default function Login() {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
     try {
-      // Popups are unreliable inside an installed home-screen app, so redirect there.
-      if (isStandalone()) await signInWithRedirect(auth, provider);
-      else await signInWithPopup(auth, provider);
+      // Popup first everywhere: in iOS home-screen apps, the redirect flow loses the
+      // sign-in result on the way back and drops you on the login screen again.
+      await signInWithPopup(auth, provider);
     } catch (e) {
-      if (e.code === 'auth/popup-blocked') return signInWithRedirect(auth, provider);
+      if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment') {
+        return signInWithRedirect(auth, provider);
+      }
       if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') setError(friendly(e));
     } finally {
       setBusy(false);
