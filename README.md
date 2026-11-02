@@ -25,7 +25,7 @@ I tutor in BCNY's Teens & Explorers program, and points are how we keep sessions
 ## Features
 
 **Students**
-- Pick **Student** or **Teacher** and **Sign in** or **Create account**, with Google or email/password (plus password reset)
+- Sign up with just a **username, first name + last initial, and password**. No email, so the app collects no student contact info
 - See their rank front and center, the points gap to the person above them, a top-3 podium, and the full board
 - Live updates: the board changes the moment points are awarded
 - Install to the home screen on iPhone or Android, with guided instructions per platform
@@ -69,6 +69,8 @@ There's no custom backend. All business logic runs in the client, and Firestore 
 ## Engineering notes
 
 A few problems that took more than the obvious solution:
+
+- **No student emails.** Firebase Auth needs an email-shaped id, so a username maps to an address under the project's own `firebaseapp.com` host, which has no mailboxes. Students never see it, nothing can be delivered there, and nobody can hijack an account through a reset email. Teachers still sign in with Google or a verified email.
 
 - **Security lives in the rules, not the UI.** Role checks in React only decide which screens to show. Firestore rules enforce everything: students can't change points even with devtools open, profiles accept only whitelisted fields, points must be non-negative integers, and the point log is append-only. Teacher access requires a *verified* email listed in a `teachers` collection that the app itself can't write to, so choosing "Teacher" on the login screen is a request, not a grant.
 - **Unread badges without a server.** Each student's profile stores when they last opened Announcements. The badge compares that to post timestamps, so reading on one device clears it everywhere. Server-timestamp estimates keep it correct even before a write is confirmed.

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged, signOut, sendEmailVerification, getRedirectResult } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db, checkTeacher } from './firebase';
+import { auth, db, checkTeacher, isStudentEmail } from './firebase';
 import Login, { getLoginAs } from './Login';
 import StudentHome from './StudentHome';
 import TeacherHome from './TeacherHome';
@@ -65,7 +65,8 @@ export default function App() {
   const switchTo = (role) => { try { localStorage.setItem('loginAs', role); } catch {} rerender((n) => n + 1); };
 
   // Picked "Teacher" but the account isn't approved (or the email isn't verified yet).
-  if (loginAs === 'teacher' && !teacher) {
+  // (Username accounts are always students, so they skip this.)
+  if (loginAs === 'teacher' && !teacher && !isStudentEmail(user.email)) {
     return (
       <TeacherGate user={user} onStudent={() => switchTo('student')}
         onRecheck={async () => {

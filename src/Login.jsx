@@ -5,7 +5,7 @@ import {
   updateProfile, sendPasswordResetEmail, sendEmailVerification,
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { auth, db, usernameToEmail, normalizeUsername, USERNAME_RE } from './firebase';
 
 const MESSAGES = {
   'auth/invalid-credential': 'That email and password don’t match. Check both and try again.',
@@ -23,8 +23,18 @@ const MESSAGES = {
   'auth/unauthorized-domain': 'This web address isn’t allowed to sign in. Open the app from its official link.',
   'auth/popup-blocked': 'Your browser blocked the Google window. Allow pop-ups and try again.',
 };
+// Students log in with a username, so email wording would confuse them.
+const STUDENT_MESSAGES = {
+  'auth/invalid-credential': 'That username and password don’t match. Check both and try again.',
+  'auth/wrong-password': 'That username and password don’t match. Check both and try again.',
+  'auth/user-not-found': 'No account with that username yet. Switch to “Sign up” to make one.',
+  'auth/email-already-in-use': 'That username is taken. Try adding a number or your last initial.',
+  'auth/invalid-email': 'Usernames can only use letters, numbers, dots, and underscores.',
+  'auth/operation-not-allowed': 'Sign-up is turned off for this app. Ask your teacher.',
+};
 // Unknown errors show their code so they can be looked up.
-const friendly = (e) => {
+const friendly = (e, role = 'teacher') => {
+  if (role === 'student' && STUDENT_MESSAGES[e?.code]) return STUDENT_MESSAGES[e.code];
   if (MESSAGES[e?.code]) return MESSAGES[e.code];
   console.error('Auth error', e);
   return `That didn’t work${e?.code ? ` (${e.code.replace('auth/', '')})` : ''}. Try again.`;
@@ -79,11 +89,13 @@ export default function Login() {
   const [mode, setMode] = useState('login'); // login | signup
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
   const signup = mode === 'signup';
+  const student = role === 'student';
 
   const pickRole = (r) => { setRole(r); saveLoginAs(r); setError(''); setNote(''); };
   const pickMode = (m) => { setMode(m); setError(''); setNote(''); };
@@ -111,10 +123,19 @@ export default function Login() {
     e.preventDefault();
     setError(''); setNote(''); setBusy(true);
     saveLoginAs(role);
+    let loginEmail = email.trim();
+    if (student) {
+      const u = normalizeUsername(username);
+      if (!USERNAME_RE.test(u)) {
+        setBusy(false);
+        return setError('Usernames are 3–20 characters: letters, numbers, dots, or underscores. No spaces.');
+      }
+      loginEmail = usernameToEmail(u);
+    }
     try {
       if (signup) {
         if (!name.trim()) throw { code: 'name' };
-        const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+        const cred = await createUserWithEmailAndPassword(auth, loginEmail, password);
         await updateProfile(cred.user, { displayName: name.trim() });
         // The auth listener already saved a profile before the name was set, so fix it up.
         await setDoc(doc(db, 'users', cred.user.uid), { name: name.trim() }, { merge: true });
@@ -122,10 +143,10 @@ export default function Login() {
         if (role === 'teacher') await sendEmailVerification(cred.user).catch(() => {});
         window.dispatchEvent(new Event('profile-updated'));
       } else {
-        await signInWithEmailAndPassword(auth, email.trim(), password);
+        await signInWithEmailAndPassword(auth, loginEmail, password);
       }
     } catch (err) {
-      setError(err.code === 'name' ? 'Add your name so your teacher knows who you are.' : friendly(err));
+      setError(err.code === 'name' ? 'Add your name so your teacher knows who you are.' : friendly(err, role));
     } finally {
       setBusy(false);
     }
@@ -173,7 +194,9 @@ export default function Login() {
           <div><p className="login-hint">Teacher accounts need to be approved by the program lead before the teacher tools unlock.</p></div>
         </div>
 
-        <button className="btn btn-google" onClick={google} disabled={busy}>
+        <div className={`reveal ${student ? '' : 'is-open'}`} aria-hidden={student}>
+          <div>
+        <button className="btn btn-google" onClick={google} disabled={busy} tabIndex={student ? -1 : 0}>
           <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
             <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/>
             <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
@@ -184,6 +207,8 @@ export default function Login() {
         </button>
 
         <div className="or"><span>or with email</span></div>
+          </div>
+        </div>
 
         <form onSubmit={submit} className="stack" noValidate={false}>
           <div className={`reveal ${signup ? 'is-open' : ''}`} aria-hidden={!signup}>
@@ -191,15 +216,24 @@ export default function Login() {
               <label>
                 Your name
                 <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name"
-                  placeholder="First and last" tabIndex={signup ? 0 : -1} />
+                  placeholder={student ? 'First name + last initial' : 'First and last'} tabIndex={signup ? 0 : -1} />
               </label>
             </div>
           </div>
-          <label>
-            Email
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email"
-              required inputMode="email" placeholder="you@email.com" />
-          </label>
+          {student ? (
+            <label key="username" className="swap">
+              Username
+              <input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username"
+                autoCapitalize="none" autoCorrect="off" spellCheck={false} required
+                placeholder={signup ? 'Make one up, like jaylen23' : 'Your username'} />
+            </label>
+          ) : (
+            <label key="email" className="swap">
+              Email
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email"
+                required inputMode="email" placeholder="you@email.com" />
+            </label>
+          )}
           <label>
             Password
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6}
@@ -213,10 +247,16 @@ export default function Login() {
           </button>
         </form>
 
+        <div className={`reveal ${student && signup ? 'is-open' : ''}`}>
+          <div><p className="login-forgot">Write down your username and password somewhere safe. There’s no email to reset it.</p></div>
+        </div>
+
         <div className={`reveal ${signup ? '' : 'is-open'}`}>
           <div>
             <div className="login-links">
-              <button className="link" onClick={reset} tabIndex={signup ? -1 : 0}>Forgot password?</button>
+              {student
+                ? <p className="login-forgot">Forgot your password? Ask your teacher. They’ll help you make a new account and move your points over.</p>
+                : <button className="link" onClick={reset} tabIndex={signup ? -1 : 0}>Forgot password?</button>}
             </div>
           </div>
         </div>

@@ -3,7 +3,7 @@ import {
   collection, doc, getDocs, onSnapshot, query, orderBy, limit, runTransaction,
   setDoc, deleteDoc, addDoc, serverTimestamp,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, handleOf } from './firebase';
 import Leaderboard, { useLeaderboard } from './Leaderboard';
 import { InstallCard } from './DeviceCards';
 import { Avatar, Sheet, timeAgo } from './ui';
@@ -213,7 +213,7 @@ function StudentsTab({ users, rows, notify }) {
         {users.length} joined, {onBoard.size} on the board
       </p>
       {users.length > 6 && (
-        <input className="search" type="search" placeholder="Search by name or email" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="search" type="search" placeholder="Search by name or username" value={q} onChange={(e) => setQ(e.target.value)} />
       )}
       {users.length === 0 ? (
         <p className="empty">No students have joined yet. Share the app link — they’ll show up here after they sign in.</p>
@@ -226,7 +226,7 @@ function StudentsTab({ users, rows, notify }) {
                 <Avatar name={u.name || u.email} photo={u.photoURL} size={36} />
                 <span className="row-name">
                   {u.name}
-                  <small>{u.email}</small>
+                  <small>{handleOf(u.email)}</small>
                 </span>
                 <button className={`btn btn-sm ${on ? 'btn-ghost' : 'btn-primary'}`} onClick={() => (on ? remove(u) : add(u))}>
                   {on ? 'Remove' : 'Add to board'}

@@ -587,3 +587,5 @@ input:focus, textarea:focus { outline: none; border-color: var(--court); box-sha
   .zoom { animation: fadeIn .18s ease both; }
 }
 .card .error { color: var(--minus); }
+.login-forgot { font-size: .88rem; color: var(--muted); text-align: center; margin: 4px 0 2px; }
+.login .stack > label.swap { animation-duration: .28s; }
