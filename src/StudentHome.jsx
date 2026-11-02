@@ -4,6 +4,8 @@ import { db } from './firebase';
 import Leaderboard, { useLeaderboard } from './Leaderboard';
 import { InstallCard } from './DeviceCards';
 import { timeAgo } from './ui';
+import { StudentHomework } from './Homework';
+import { StudentPrize } from './Prizes';
 
 const millis = (ts) => (ts?.toMillis ? ts.toMillis() : 0);
 
@@ -43,47 +45,50 @@ function useAnnouncements(uid, onNew) {
   return { posts, unread, seenAt, markSeen };
 }
 
+const STUDENT_TABS = [['board', 'Board'], ['homework', 'Homework'], ['prize', 'Prize'], ['news', 'News']];
+
 export default function StudentHome({ user, notify }) {
-  const [tab, setTab] = useState('Leaderboard');
+  const [tab, setTabState] = useState(() => {
+    try { return sessionStorage.getItem('sTab') || 'board'; } catch { return 'board'; }
+  });
+  const setTab = (t) => { setTabState(t); try { sessionStorage.setItem('sTab', t); } catch {} };
   const tabRef = useRef(tab);
   tabRef.current = tab;
   const { rows, error } = useLeaderboard();
   const { posts, unread, seenAt, markSeen } = useAnnouncements(user.uid, (p) => {
-    if (tabRef.current !== 'Announcements') notify({ title: 'New announcement', body: p.title });
+    if (tabRef.current !== 'news') notify({ title: 'New announcement', body: p.title });
   });
   // The "new" highlight should survive while you read, so freeze what was unread when you opened the tab.
   const [openedSeenAt, setOpenedSeenAt] = useState(null);
+  const myRank = rows?.find((r) => r.id === user.uid)?.rank;
 
   useEffect(() => {
-    if (tab === 'Announcements' && unread > 0) markSeen();
+    if (tab === 'news' && unread > 0) markSeen();
   }, [tab, unread]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const openAnnouncements = () => {
-    setOpenedSeenAt(seenAt || null);
-    setTab('Announcements');
+  const open = (t) => {
+    if (t === 'news') setOpenedSeenAt(seenAt || null);
+    setTab(t);
   };
 
   return (
     <main className="page">
       <nav className="tabs" aria-label="Sections">
-        <button className={`tab ${tab === 'Leaderboard' ? 'is-active' : ''}`} aria-current={tab === 'Leaderboard' ? 'page' : undefined}
-          onClick={() => setTab('Leaderboard')}>
-          Leaderboard
-        </button>
-        <button className={`tab ${tab === 'Announcements' ? 'is-active' : ''}`} aria-current={tab === 'Announcements' ? 'page' : undefined}
-          onClick={openAnnouncements}>
-          Announcements
-          {unread > 0 && tab !== 'Announcements' && (
-            <span className="badge" aria-label={`${unread} new`}>{unread > 9 ? '9+' : unread}</span>
-          )}
-        </button>
+        {STUDENT_TABS.map(([key, label]) => (
+          <button key={key} className={`tab ${tab === key ? 'is-active' : ''}`} aria-current={tab === key ? 'page' : undefined}
+            onClick={() => open(key)}>
+            {label}
+            {key === 'news' && unread > 0 && tab !== 'news' && (
+              <span className="badge" aria-label={`${unread} new`}>{unread > 9 ? '9+' : unread}</span>
+            )}
+          </button>
+        ))}
       </nav>
 
-      {tab === 'Leaderboard' ? (
-        <LeaderboardTab user={user} rows={rows} error={error} />
-      ) : (
-        <AnnouncementsTab posts={posts} newSince={openedSeenAt} />
-      )}
+      {tab === 'board' && <LeaderboardTab user={user} rows={rows} error={error} />}
+      {tab === 'homework' && <div className="tab-body"><StudentHomework user={user} notify={notify} /></div>}
+      {tab === 'prize' && <div className="tab-body"><StudentPrize user={user} rank={myRank} notify={notify} /></div>}
+      {tab === 'news' && <AnnouncementsTab posts={posts} newSince={openedSeenAt} />}
     </main>
   );
 }

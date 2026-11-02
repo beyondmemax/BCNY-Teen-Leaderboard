@@ -29,10 +29,14 @@ I tutor in BCNY's Teens & Explorers program, and points are how we keep sessions
 - See their rank front and center, the points gap to the person above them, a top-3 podium, and the full board
 - Live updates: the board changes the moment points are awarded
 - Install to the home screen on iPhone or Android, with guided instructions per platform
+- **Homework:** log how many assignments they finished on a day, with photo proof from the camera or a screenshot
+- **Prize:** pick what they want if they finish top 3 (up to $50 for 1st/2nd, $25 for 3rd), with a store link, name, price, or picture
 - Announcements tab with an unread badge that stays in sync across their devices, plus an in-app alert when something is posted while the app is open
 
 **Teacher**
 - **Board:** one-tap −1 / +1 / +5, or custom amounts with a private reason and per-student history
+- **Homework:** review submissions with their proof photos, then approve (points go straight onto the board) or mark not approved
+- **Prizes:** every student's picks next to their current rank, top 3 highlighted, with links to the items
 - **Students:** everyone who has signed up, with search; choose who appears on the leaderboard
 - **Announce:** post a message to every student's Announcements tab, and delete old ones
 
@@ -56,6 +60,9 @@ There's no custom backend. All business logic runs in the client, and Firestore 
 | `users/{uid}` | name, email, photo, last-read announcement time | that user, teacher | that user (whitelisted fields only) |
 | `leaderboard/{uid}` | display name, photo, points | any signed-in user | teacher |
 | `pointsLog/{id}` | delta, reason, timestamp | teacher | teacher (append-only) |
+| `homework/{id}` | day, count, note, status, points awarded | that student, teacher | that student creates (pending), teacher reviews |
+| `homeworkProof/{id}` | compressed proof photos | teacher | that student creates; deleted after review |
+| `prizes/{uid}` | prize picks for the current cycle | that student, teacher | that student |
 | `announcements/{id}` | title, body, author, time | any signed-in user | teacher |
 | `teachers/{email}` | marks an account as a teacher | that teacher | nobody (set in console) |
 
@@ -66,6 +73,7 @@ A few problems that took more than the obvious solution:
 - **Security lives in the rules, not the UI.** Role checks in React only decide which screens to show. Firestore rules enforce everything: students can't change points even with devtools open, profiles accept only whitelisted fields, points must be non-negative integers, and the point log is append-only. Teacher access requires a *verified* email listed in a `teachers` collection that the app itself can't write to, so choosing "Teacher" on the login screen is a request, not a grant.
 - **Unread badges without a server.** Each student's profile stores when they last opened Announcements. The badge compares that to post timestamps, so reading on one device clears it everywhere. Server-timestamp estimates keep it correct even before a write is confirmed.
 - **Race-free points.** Point changes run in a Firestore transaction that clamps at zero and writes the log entry atomically, so two quick taps never lose an update.
+- **Photos without paid storage.** Firebase Storage needs the paid plan, so photos are resized and re-encoded on the phone to fit inside a Firestore document's 1 MB limit, kept in a separate collection so lists stay light, and deleted once a teacher reviews them.
 - **Free-tier by design.** Push notifications would require Cloud Functions (paid plan), so announcements live in an in-app feed instead. A conscious tradeoff for a nonprofit program.
 - **Works offline.** Firestore's persistent cache plus a network-first app shell mean the board still opens with no signal.
 
@@ -104,6 +112,7 @@ firestore.rules      access control
    ```
 
 **Good to know**
+- Start a new prize cycle by changing `CYCLE` in `src/config.js` and redeploying; old picks stop showing. Teachers can also clear all picks from the Prizes tab.
 - Drop the organization's logo at `public/bcny-logo.png` and it appears on the login screen (shown in white on the blue header). Without it, the org name shows as text.
 - Removing a student from the board erases their points.
 - `npm run dev` runs everything locally against your Firebase project.

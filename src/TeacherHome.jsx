@@ -7,8 +7,10 @@ import { db } from './firebase';
 import Leaderboard, { useLeaderboard } from './Leaderboard';
 import { InstallCard } from './DeviceCards';
 import { Avatar, Sheet, timeAgo } from './ui';
+import { TeacherHomework } from './Homework';
+import { TeacherPrizes } from './Prizes';
 
-const TABS = ['Board', 'Students', 'Announce'];
+const TABS = ['Board', 'Homework', 'Students', 'Prizes', 'Announce'];
 
 export default function TeacherHome({ user, notify }) {
   const [tab, setTab] = useState(() => {
@@ -31,6 +33,8 @@ export default function TeacherHome({ user, notify }) {
       <InstallCard />
       {error && <p className="error">{error}</p>}
       {tab === 'Board' && <BoardTab rows={rows} user={user} notify={notify} onAddPeople={() => go('Students')} />}
+      {tab === 'Homework' && <TeacherHomework user={user} notify={notify} />}
+      {tab === 'Prizes' && <TeacherPrizes rows={rows} />}
       {tab === 'Students' && <StudentsTab users={users} rows={rows} notify={notify} />}
       {tab === 'Announce' && <AnnounceTab user={user} notify={notify} />}
     </main>

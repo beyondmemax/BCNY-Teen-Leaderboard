@@ -47,5 +47,41 @@ service cloud.firestore {
         && (!('body' in request.resource.data) || request.resource.data.body.size() <= 300);
       allow update, delete: if isTeacher();
     }
+
+    // Homework a student logged. Students create their own (always pending) and can delete it while
+    // it's pending; only teachers review it. Nobody sees another student's submissions.
+    match /homework/{id} {
+      allow read: if isTeacher() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'date', 'count', 'note', 'photoCount', 'status', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.count is int && request.resource.data.count >= 1 && request.resource.data.count <= 20
+        && request.resource.data.date is string && request.resource.data.date.size() == 10
+        && request.resource.data.note is string && request.resource.data.note.size() <= 140;
+      allow update: if isTeacher();
+      allow delete: if isTeacher()
+        || (signedIn() && resource.data.uid == request.auth.uid && resource.data.status == 'pending');
+    }
+
+    // Proof photos, kept apart so lists stay light. Teachers read them; deleted after review.
+    match /homeworkProof/{id} {
+      allow read: if isTeacher() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid', 'photos'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.photos is list
+        && request.resource.data.photos.size() >= 1 && request.resource.data.photos.size() <= 3;
+      allow update: if false;
+      allow delete: if isTeacher() || (signedIn() && resource.data.uid == request.auth.uid);
+    }
+
+    // Each student's prize picks for the cycle. Private to them and the teachers.
+    match /prizes/{uid} {
+      allow read: if isTeacher() || (signedIn() && request.auth.uid == uid);
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 'cycle', 'top', 'third', 'updatedAt']);
+      allow delete: if isTeacher();
+    }
   }
 }
